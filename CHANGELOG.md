@@ -27,3 +27,7 @@
 - feat: recorder watchdog + requestData flush; console debug logs
 ## 0.3.3 - 2025-09-09
 - chore: remove audio option from export UI and logic
+## 0.4.0 - 2025-09-09
+- feat: aspect ratio selector with stage overlay; exports crop to aspect
+- feat: drag-and-drop layer reordering; delete button on layers
+- chore: remove persist-to-GitHub option and video controls toggle

@@ -102,9 +102,12 @@ body {
 .num { width: 76px; padding: 6px 8px; background: #0e1320; border: 1px solid var(--border); color: var(--text); border-radius: 8px; }
 
 .layer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow: auto; }
-.layer-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; background: #0e1320; border: 1px solid var(--border); }
+.layer-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: grab; background: #0e1320; border: 1px solid var(--border); }
 .layer-list li.selected { outline: 2px solid var(--primary); }
 .layer-list .muted { color: var(--muted); font-size: 12px; }
+.layer-actions { display: flex; gap: 6px; }
+.icon-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 6px; }
+.icon-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
 
 .stage-wrap {
   padding: 16px;
@@ -133,6 +136,9 @@ body {
   overflow: hidden;
   box-shadow: 0 0 0 4px rgba(0,0,0,0.2) inset, 0 12px 30px rgba(0,0,0,0.35);
 }
+
+.crop-overlay { position: absolute; left: 0; top: 0; width: 1880px; height: 980px; pointer-events: none; }
+.crop-rect { position: absolute; border: 2px dashed var(--accent); box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); border-radius: 8px; }
 
 .layer {
   position: absolute;

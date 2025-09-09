@@ -31,13 +31,6 @@
         <div class="panel">
           <h2>Layers</h2>
           <ul id="layerList" class="layer-list"></ul>
-          <div class="layer-order">
-            <button id="bringForwardBtn" class="btn btn-small">Bring Forward</button>
-            <button id="sendBackwardBtn" class="btn btn-small">Send Backward</button>
-          </div>
-          <div class="field" style="margin-top:8px">
-            <label><input id="persistUploads" type="checkbox" /> Persist uploads to GitHub</label>
-          </div>
         </div>
 
         <div class="panel">
@@ -53,9 +46,7 @@
               <input id="scaleRange" type="range" min="10" max="300" value="100" />
               <input id="scalePct" type="number" min="10" max="300" value="100" class="num" />
             </div>
-            <div class="row">
-              <label><input id="toggleVideoControls" type="checkbox" /> Video controls</label>
-            </div>
+            
           </div>
         </div>
 
@@ -65,6 +56,19 @@
             <div class="row">
               <label for="exportFormat">Format</label>
               <select id="exportFormat" class="select-input"></select>
+            </div>
+            <div class="row">
+              <label for="cropAspect">Aspect</label>
+              <select id="cropAspect" class="select-input">
+                <option value="none">None (Full stage)</option>
+                <option value="16:9">16:9</option>
+                <option value="1:1">1:1</option>
+                <option value="4:5">4:5</option>
+                <option value="5:4">5:4</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+                <option value="9:16">9:16</option>
+              </select>
             </div>
             <div class="row">
               <label for="exportFpsInput">FPS</label>
@@ -90,6 +94,7 @@
       <section class="stage-wrap">
         <div id="stageScaler" class="stage-scaler">
           <div id="stage" class="stage" tabindex="0" aria-label="Design stage 1880x980"></div>
+          <div id="cropOverlay" class="crop-overlay" aria-hidden="true"><div id="cropRect" class="crop-rect"></div></div>
         </div>
       </section>
     </main>

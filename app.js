@@ -4,6 +4,8 @@
   const stage = document.getElementById('stage');
   const layerList = document.getElementById('layerList');
   const stageScaler = document.getElementById('stageScaler');
+  const cropOverlay = document.getElementById('cropOverlay');
+  const cropRect = document.getElementById('cropRect');
   const selectedInfo = document.getElementById('selectedInfo');
   const scaleRange = document.getElementById('scaleRange');
   const scalePct = document.getElementById('scalePct');
@@ -23,9 +25,8 @@
   const pngSelect = document.getElementById('pngSelect');
   const addPngSelectedBtn = document.getElementById('addPngSelectedBtn');
 
-  const bringForwardBtn = document.getElementById('bringForwardBtn');
-  const sendBackwardBtn = document.getElementById('sendBackwardBtn');
   const persistUploads = document.getElementById('persistUploads');
+  const cropAspect = document.getElementById('cropAspect');
 
   const exportFormat = document.getElementById('exportFormat');
   const exportFpsInput = document.getElementById('exportFpsInput');
@@ -70,10 +71,58 @@
     const meta = document.createElement('span');
     meta.className = 'muted';
     meta.textContent = `${Math.round(layer.naturalWidth)}×${Math.round(layer.naturalHeight)}`;
-    item.appendChild(name);
-    item.appendChild(meta);
+    const left = document.createElement('div');
+    left.style.display = 'flex';
+    left.style.alignItems = 'center';
+    left.style.gap = '8px';
+    left.appendChild(name);
+    left.appendChild(meta);
+    const actions = document.createElement('div');
+    actions.className = 'layer-actions';
+    const del = document.createElement('button');
+    del.className = 'icon-btn';
+    del.title = 'Delete layer';
+    del.textContent = '🗑';
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteLayer(layer.id); });
+    actions.appendChild(del);
+    item.appendChild(left);
+    item.appendChild(actions);
     item.addEventListener('click', () => selectLayer(layer.id));
+    // drag handle
+    item.draggable = true;
+    item.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', layer.id);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      reorderLayer(draggedId, layer.id);
+    });
     layerList.appendChild(item);
+  }
+
+  function deleteLayer(id) {
+    const idx = layers.findIndex(l => l.id === id);
+    if (idx === -1) return;
+    const [removed] = layers.splice(idx, 1);
+    if (removed && removed.el && removed.el.parentNode) removed.el.parentNode.removeChild(removed.el);
+    if (selectedLayer && selectedLayer.id === id) selectedLayer = null;
+    redrawLayerList();
+    updateSelectedInfo();
+  }
+
+  function reorderLayer(draggedId, targetId) {
+    if (draggedId === targetId) return;
+    const from = layers.findIndex(l => l.id === draggedId);
+    const to = layers.findIndex(l => l.id === targetId);
+    if (from === -1 || to === -1) return;
+    const [moved] = layers.splice(from, 1);
+    layers.splice(to, 0, moved);
+    // reflect DOM order: append in sequence
+    layers.forEach(l => stage.appendChild(l.el));
+    redrawLayerList();
   }
 
   function refreshLayerListSelection() {
@@ -346,41 +395,9 @@
       centerLayer(selectedLayer, 'y');
     });
 
-    bringForwardBtn.addEventListener('click', () => {
-      if (!selectedLayer) return;
-      const idx = layers.findIndex((l) => l.id === selectedLayer.id);
-      if (idx === -1 || idx === layers.length - 1) return;
-      const [moved] = layers.splice(idx, 1);
-      layers.splice(idx + 1, 0, moved);
-      stage.appendChild(moved.el);
-      // reorder list visually by re-creating list
-      redrawLayerList();
-    });
+    // no-op: buttons removed; reordering via drag/drop
 
-    sendBackwardBtn.addEventListener('click', () => {
-      if (!selectedLayer) return;
-      const idx = layers.findIndex((l) => l.id === selectedLayer.id);
-      if (idx <= 0) return;
-      const [moved] = layers.splice(idx, 1);
-      layers.splice(idx - 1, 0, moved);
-      stage.insertBefore(moved.el, stage.children[idx - 1] || stage.firstChild);
-      redrawLayerList();
-    });
-
-    toggleVideoControls.addEventListener('change', () => {
-      // apply to selected if video
-      if (selectedLayer && selectedLayer.type === 'video') {
-        const video = selectedLayer.el.querySelector('video');
-        if (video) video.controls = toggleVideoControls.checked;
-      }
-      // also apply to all videos
-      layers.forEach((l) => {
-        if (l.type === 'video') {
-          const v = l.el.querySelector('video');
-          if (v) v.controls = toggleVideoControls.checked;
-        }
-      });
-    });
+    // video controls toggle removed
 
     // Keyboard nudge arrows
     stage.addEventListener('keydown', (e) => {
@@ -411,6 +428,42 @@
   // Initialize
   wireInputs();
   detectFormats();
+  // --------- Crop overlay ---------
+  function parseAspect(value) {
+    if (!value || value === 'none') return null;
+    const [w, h] = value.split(':').map(Number);
+    if (!w || !h) return null;
+    return w / h;
+  }
+
+  function updateCropRect() {
+    const ratio = parseAspect(cropAspect.value);
+    if (!ratio) {
+      cropOverlay.setAttribute('aria-hidden', 'true');
+      cropRect.style.display = 'none';
+      return;
+    }
+    cropOverlay.setAttribute('aria-hidden', 'false');
+    cropRect.style.display = 'block';
+    // fit aspect inside stage center
+    const stageW = STAGE_WIDTH;
+    const stageH = STAGE_HEIGHT;
+    let w = stageW;
+    let h = w / ratio;
+    if (h > stageH) {
+      h = stageH;
+      w = h * ratio;
+    }
+    const x = Math.round((stageW - w) / 2);
+    const y = Math.round((stageH - h) / 2);
+    cropRect.style.width = `${Math.round(w)}px`;
+    cropRect.style.height = `${Math.round(h)}px`;
+    cropRect.style.left = `${x}px`;
+    cropRect.style.top = `${y}px`;
+  }
+
+  cropAspect.addEventListener('change', updateCropRect);
+  updateCropRect();
 
   async function fetchManifest(url) {
     try {
@@ -593,8 +646,31 @@
     const mimeType = exportFormat.value || 'video/webm';
 
     const canvas = document.createElement('canvas');
-    canvas.width = STAGE_WIDTH;
-    canvas.height = STAGE_HEIGHT;
+    // If cropping is selected, set canvas to crop area; otherwise full stage
+    const ratio = parseAspect(cropAspect.value);
+    if (ratio) {
+      // compute crop rect same as overlay
+      const stageW = STAGE_WIDTH;
+      const stageH = STAGE_HEIGHT;
+      let w = stageW;
+      let h = w / ratio;
+      if (h > stageH) { h = stageH; w = h * ratio; }
+      const x = Math.round((stageW - w) / 2);
+      const y = Math.round((stageH - h) / 2);
+      canvas.width = Math.round(w);
+      canvas.height = Math.round(h);
+      // wrap draw to clip crop region
+      const baseDraw = drawCompositeFrame;
+      drawCompositeFrame = function(ctx2) {
+        // draw into an offscreen then copy crop region
+        baseDraw(ctx2);
+        // copy portion into itself by translating: we will render to temp
+      };
+      // We'll implement draw by drawing to a temp and copying region
+    } else {
+      canvas.width = STAGE_WIDTH;
+      canvas.height = STAGE_HEIGHT;
+    }
     const ctx = canvas.getContext('2d');
     if (!ctx) { alert('Canvas 2D not supported.'); return; }
 
@@ -658,7 +734,48 @@
           }
         }
       }
-      drawCompositeFrame(ctx);
+      if (ratio) {
+        // draw to temp full-size and then blit crop region into export canvas
+        if (!startCompositing._tempCanvas) {
+          const t = document.createElement('canvas');
+          t.width = STAGE_WIDTH;
+          t.height = STAGE_HEIGHT;
+          startCompositing._tempCanvas = t;
+          startCompositing._tempCtx = t.getContext('2d');
+          // compute crop again
+          const stageW = STAGE_WIDTH;
+          const stageH = STAGE_HEIGHT;
+          let w = stageW; let h = w / ratio; if (h > stageH) { h = stageH; w = h * ratio; }
+          startCompositing._crop = {
+            w: Math.round(w), h: Math.round(h),
+            x: Math.round((stageW - w) / 2), y: Math.round((stageH - h) / 2)
+          };
+        }
+        const tctx = startCompositing._tempCtx;
+        tctx.clearRect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
+        // draw full scene
+        // reuse existing logic by temporarily targeting temp ctx
+        // manual draw loop (copy of drawCompositeFrame for speed)
+        for (const layer of layers) {
+          const x = layer.x;
+          const y = layer.y;
+          const scale = layer.scale / 100;
+          const w = layer.naturalWidth * scale;
+          const h = layer.naturalHeight * scale;
+          if (layer.type === 'video') {
+            const v = layer.el.querySelector('video');
+            if (v && v.readyState >= 2) tctx.drawImage(v, x, y, w, h);
+          } else if (layer.type === 'image') {
+            const img = layer.el.querySelector('img');
+            if (img && img.complete) tctx.drawImage(img, x, y, w, h);
+          }
+        }
+        const c = startCompositing._crop;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(startCompositing._tempCanvas, c.x, c.y, c.w, c.h, 0, 0, canvas.width, canvas.height);
+      } else {
+        drawCompositeFrame(ctx);
+      }
       try {
         const track = exportState.compositeStream && exportState.compositeStream.getVideoTracks()[0];
         if (track && typeof track.requestFrame === 'function') track.requestFrame();
