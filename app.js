@@ -30,7 +30,6 @@
   const exportFormat = document.getElementById('exportFormat');
   const exportFpsInput = document.getElementById('exportFpsInput');
   const exportDurationInput = document.getElementById('exportDurationInput');
-  const exportIncludeAudio = document.getElementById('exportIncludeAudio');
   const exportDeterministic = document.getElementById('exportDeterministic');
   const startExportBtn = document.getElementById('startExportBtn');
   const stopExportBtn = document.getElementById('stopExportBtn');
@@ -607,20 +606,6 @@
     exportProgress.value = 0;
     exportStatus.textContent = 'Preparing export...';
     console.log('[export] start', { fps, durationSec, mimeType });
-    if (exportIncludeAudio.checked) {
-      const v = getSelectedVideoElement();
-      if (v) {
-        try {
-          const audioStream = v.captureStream ? v.captureStream() : null;
-          if (audioStream) {
-            const audioTracks = audioStream.getAudioTracks();
-            for (const t of audioTracks) stream.addTrack(t);
-          }
-        } catch (e) {
-          // ignore if not supported
-        }
-      }
-    }
 
     let recorder;
     try {

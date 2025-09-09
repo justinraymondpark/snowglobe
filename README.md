@@ -47,5 +47,4 @@ Then in the UI check “Persist uploads to GitHub” before uploading.
 - Use the Export panel:
   - Format auto-detected by your browser (MP4 if supported; otherwise WebM)
   - Defaults: 60 FPS, 10 seconds
-  - Optional: include audio from the selected or first video layer
 - Click Start Export to render and download a file of the stage (1880x980). A progress bar and frame counter show status.

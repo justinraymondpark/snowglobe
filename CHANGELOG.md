@@ -25,3 +25,5 @@
 ## 0.3.2 - 2025-09-09
 - fix: enforce default 60 FPS/10s on init
 - feat: recorder watchdog + requestData flush; console debug logs
+## 0.3.3 - 2025-09-09
+- chore: remove audio option from export UI and logic
