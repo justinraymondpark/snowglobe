@@ -16,14 +16,11 @@
   const addVideoFileBtn = document.getElementById('addVideoFileBtn');
   const videoFileInput = document.getElementById('videoFileInput');
   const reloadManifestsBtn = document.getElementById('reloadManifestsBtn');
-  const videoSelect = document.getElementById('videoSelect');
-  const addVideoSelectedBtn = document.getElementById('addVideoSelectedBtn');
+  const bringForwardBtn = document.getElementById('bringForwardBtn');
+  const sendBackwardBtn = document.getElementById('sendBackwardBtn');
 
   const addPngFileBtn = document.getElementById('addPngFileBtn');
   const pngFileInput = document.getElementById('pngFileInput');
-  
-  const pngSelect = document.getElementById('pngSelect');
-  const addPngSelectedBtn = document.getElementById('addPngSelectedBtn');
 
   
   const cropAspect = document.getElementById('cropAspect');
@@ -429,8 +426,26 @@
       pngFileInput.value = '';
     });
 
-    reloadManifestsBtn.addEventListener('click', () => {
+    if (reloadManifestsBtn) reloadManifestsBtn.addEventListener('click', () => {
       loadAssetSelects();
+    });
+    if (bringForwardBtn) bringForwardBtn.addEventListener('click', () => {
+      if (!selectedLayer) return;
+      const idx = layers.findIndex(l => l.id === selectedLayer.id);
+      if (idx === -1 || idx === layers.length - 1) return;
+      const [moved] = layers.splice(idx, 1);
+      layers.splice(idx + 1, 0, moved);
+      layers.forEach(l => stage.appendChild(l.el));
+      redrawLayerList();
+    });
+    if (sendBackwardBtn) sendBackwardBtn.addEventListener('click', () => {
+      if (!selectedLayer) return;
+      const idx = layers.findIndex(l => l.id === selectedLayer.id);
+      if (idx <= 0) return;
+      const [moved] = layers.splice(idx, 1);
+      layers.splice(idx - 1, 0, moved);
+      layers.forEach(l => stage.appendChild(l.el));
+      redrawLayerList();
     });
 
     scaleRange.addEventListener('input', () => {
@@ -702,7 +717,11 @@
 
   function showAssetModal() { assetModal.setAttribute('aria-hidden', 'false'); }
   function hideAssetModal() { assetModal.setAttribute('aria-hidden', 'true'); }
-  if (browseVideosBtn) browseVideosBtn.addEventListener('click', () => { if (assetModalTitle) assetModalTitle.textContent = 'Select Video'; showAssetModal(); });
+  if (browseVideosBtn) browseVideosBtn.addEventListener('click', async () => {
+    if (assetModalTitle) assetModalTitle.textContent = 'Select Video';
+    await loadAssetSelects();
+    showAssetModal();
+  });
   if (browseImagesBtn) browseImagesBtn.addEventListener('click', async () => {
     if (assetModalTitle) assetModalTitle.textContent = 'Select Image';
     // build grid for images

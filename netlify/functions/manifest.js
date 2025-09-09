@@ -26,6 +26,7 @@ exports.handler = async (event) => {
       const thumbJpg = path.join(videoDir, `${base}.jpg`);
       if (fs.existsSync(thumbPng)) thumbs[f] = `/public/video/${base}.png`;
       else if (fs.existsSync(thumbJpg)) thumbs[f] = `/public/video/${base}.jpg`;
+      else thumbs[f] = '/public/png/placeholder.svg';
     }
     fs.writeFileSync(path.join(pngDir, '_manifest.json'), JSON.stringify({ files: pngs }, null, 2));
     fs.writeFileSync(path.join(videoDir, '_manifest.json'), JSON.stringify({ files: videos, thumbnails: thumbs }, null, 2));
