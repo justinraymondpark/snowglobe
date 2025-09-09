@@ -13,15 +13,12 @@
         <div class="group">
           <button id="addVideoFileBtn" class="btn">Upload Video</button>
           <input id="videoFileInput" type="file" accept="video/*" hidden />
-          <select id="videoSelect" class="select-input"></select>
-          <button id="addVideoSelectedBtn" class="btn btn-secondary">Add Video (Select)</button>
-          <button id="browseVideosBtn" class="btn btn-secondary">Browse Videos</button>
+          <button id="browseVideosBtn" class="btn btn-secondary">📼 Browse Videos</button>
         </div>
         <div class="group">
           <button id="addPngFileBtn" class="btn">Upload PNG</button>
           <input id="pngFileInput" type="file" accept="image/png" hidden />
-          <select id="pngSelect" class="select-input"></select>
-          <button id="addPngSelectedBtn" class="btn btn-secondary">Add PNG (Select)</button>
+          <button id="browseImagesBtn" class="btn btn-secondary">🖼️ Browse Images</button>
           <button id="reloadManifestsBtn" class="btn btn-secondary">Reload Manifests</button>
         </div>
       </div>
@@ -32,6 +29,10 @@
         <div class="panel">
           <h2>Layers</h2>
           <ul id="layerList" class="layer-list"></ul>
+          <div class="layer-order">
+            <button id="bringForwardBtn" class="btn btn-small">Bring Forward</button>
+            <button id="sendBackwardBtn" class="btn btn-small">Send Backward</button>
+          </div>
         </div>
 
         <div class="panel">
@@ -107,7 +108,7 @@
     <div id="assetModal" class="modal" aria-hidden="true">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Select Video</h3>
+          <h3 id="assetModalTitle">Select Video</h3>
           <button id="closeAssetModal" class="icon-btn" aria-label="Close">✕</button>
         </div>
         <div id="assetGrid" class="asset-grid"></div>

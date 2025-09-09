@@ -109,6 +109,7 @@ body {
 .icon-btn { background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 4px; border-radius: 6px; }
 .icon-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
 .drop-indicator { height: 0; border-top: 2px solid var(--primary); margin: -2px 0 0 0; }
+.layer-order { display: flex; gap: 8px; margin-top: 8px; }
 
 .stage-wrap {
   padding: 16px;

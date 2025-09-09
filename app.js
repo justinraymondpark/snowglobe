@@ -668,7 +668,9 @@
   const assetModal = document.getElementById('assetModal');
   const assetGrid = document.getElementById('assetGrid');
   const browseVideosBtn = document.getElementById('browseVideosBtn');
+  const browseImagesBtn = document.getElementById('browseImagesBtn');
   const closeAssetModal = document.getElementById('closeAssetModal');
+  const assetModalTitle = document.getElementById('assetModalTitle');
 
   function buildAssetGrid(items) {
     if (!assetGrid) return;
@@ -687,7 +689,11 @@
       card.appendChild(img);
       card.appendChild(meta);
       card.addEventListener('click', () => {
-        addVideoFromSource(item.url, false).catch((e) => alert(e.message));
+        if (assetModalTitle && /image/i.test(assetModalTitle.textContent || '')) {
+          addImageFromSource(item.url, false).catch((e) => alert(e.message));
+        } else {
+          addVideoFromSource(item.url, false).catch((e) => alert(e.message));
+        }
         hideAssetModal();
       });
       assetGrid.appendChild(card);
@@ -696,7 +702,15 @@
 
   function showAssetModal() { assetModal.setAttribute('aria-hidden', 'false'); }
   function hideAssetModal() { assetModal.setAttribute('aria-hidden', 'true'); }
-  if (browseVideosBtn) browseVideosBtn.addEventListener('click', showAssetModal);
+  if (browseVideosBtn) browseVideosBtn.addEventListener('click', () => { if (assetModalTitle) assetModalTitle.textContent = 'Select Video'; showAssetModal(); });
+  if (browseImagesBtn) browseImagesBtn.addEventListener('click', async () => {
+    if (assetModalTitle) assetModalTitle.textContent = 'Select Image';
+    // build grid for images
+    const pngs = await fetchManifest('/public/png/_manifest.json');
+    const items = pngs.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest', thumb: u }));
+    buildAssetGrid(items);
+    showAssetModal();
+  });
   if (closeAssetModal) closeAssetModal.addEventListener('click', hideAssetModal);
   if (assetModal) assetModal.addEventListener('click', (e) => { if (e.target === assetModal) hideAssetModal(); });
 
