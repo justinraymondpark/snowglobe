@@ -16,6 +16,7 @@
   const addVideoFileBtn = document.getElementById('addVideoFileBtn');
   const videoFileInput = document.getElementById('videoFileInput');
   const reloadManifestsBtn = document.getElementById('reloadManifestsBtn');
+  const generateThumbsBtn = document.getElementById('generateThumbsBtn');
   const bringForwardBtn = document.getElementById('bringForwardBtn');
   const sendBackwardBtn = document.getElementById('sendBackwardBtn');
 
@@ -429,6 +430,7 @@
     if (reloadManifestsBtn) reloadManifestsBtn.addEventListener('click', () => {
       loadAssetSelects();
     });
+    if (generateThumbsBtn) generateThumbsBtn.addEventListener('click', generateAllThumbnails);
     if (bringForwardBtn) bringForwardBtn.addEventListener('click', () => {
       if (!selectedLayer) return;
       const idx = layers.findIndex(l => l.id === selectedLayer.id);
@@ -627,6 +629,25 @@
     populateSelect(videoSelect, videoItems);
     populateSelect(pngSelect, pngItems);
     buildAssetGrid(videoItems);
+  }
+
+  async function generateAllThumbnails() {
+    try {
+      const res = await fetch('/public/video/_manifest.json', { cache: 'no-store' });
+      const manifest = await res.json();
+      const files = Array.isArray(manifest) ? manifest : (manifest.files || []);
+      for (const url of files) {
+        await fetch('/.netlify/functions/generate-thumb', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoPath: url })
+        });
+      }
+      await reloadManifests();
+      alert('Thumbnail generation requested. If ffmpeg is available, thumbs will appear.');
+    } catch (e) {
+      alert('Failed to request thumbnails');
+    }
   }
 
   async function reloadManifests() {
