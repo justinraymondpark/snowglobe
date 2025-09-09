@@ -11,7 +11,7 @@
   const scalePct = document.getElementById('scalePct');
   const centerHBtn = document.getElementById('centerHBtn');
   const centerVBtn = document.getElementById('centerVBtn');
-  const toggleVideoControls = document.getElementById('toggleVideoControls');
+  
 
   const addVideoFileBtn = document.getElementById('addVideoFileBtn');
   const videoFileInput = document.getElementById('videoFileInput');
@@ -25,7 +25,7 @@
   const pngSelect = document.getElementById('pngSelect');
   const addPngSelectedBtn = document.getElementById('addPngSelectedBtn');
 
-  const persistUploads = document.getElementById('persistUploads');
+  
   const cropAspect = document.getElementById('cropAspect');
 
   const exportFormat = document.getElementById('exportFormat');
@@ -266,7 +266,7 @@
       video.loop = true;
       video.playsInline = true;
       video.autoplay = true;
-      video.controls = toggleVideoControls.checked;
+      video.controls = false;
       video.addEventListener('loadedmetadata', () => {
         const width = video.videoWidth || 640;
         const height = video.videoHeight || 360;
@@ -343,10 +343,7 @@
       sessionVideoItems.push({ url, label: `${file.name} (uploaded)`, source: 'session' });
       loadAssetSelects();
       addVideoFromSource(url, true, true).catch((e) => alert(e.message));
-      if (persistUploads.checked) {
-        await persistToGitHub(file, `public/video/${file.name}`);
-        await reloadManifests();
-      }
+      
       videoFileInput.value = '';
     });
 
@@ -357,10 +354,7 @@
       sessionPngItems.push({ url, label: `${file.name} (uploaded)`, source: 'session' });
       loadAssetSelects();
       addImageFromSource(url, true, true).catch((e) => alert(e.message));
-      if (persistUploads.checked) {
-        await persistToGitHub(file, `public/png/${file.name}`);
-        await reloadManifests();
-      }
+      
       pngFileInput.value = '';
     });
 
