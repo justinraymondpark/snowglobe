@@ -68,6 +68,16 @@ body {
   color: var(--text);
 }
 
+.select-input {
+  min-width: 220px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #0e1320;
+  color: var(--text);
+}
+
 .app-main {
   display: grid;
   grid-template-columns: 320px 1fr;

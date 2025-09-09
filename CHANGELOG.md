@@ -5,3 +5,6 @@
 - feat: scaling control (10% - 300%) with range and number input
 - feat: layer order controls, layer selection list
 - feat: Netlify config and public asset folders
+## 0.1.1 - 2025-09-09
+- feat: dropdowns populated from public manifests for quick asset selection
+- chore: add manifest generator script and manifests for /public/video and /public/png

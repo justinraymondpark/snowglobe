@@ -14,11 +14,15 @@
   const videoFileInput = document.getElementById('videoFileInput');
   const addVideoUrlBtn = document.getElementById('addVideoUrlBtn');
   const videoUrlInput = document.getElementById('videoUrlInput');
+  const videoSelect = document.getElementById('videoSelect');
+  const addVideoSelectedBtn = document.getElementById('addVideoSelectedBtn');
 
   const addPngFileBtn = document.getElementById('addPngFileBtn');
   const pngFileInput = document.getElementById('pngFileInput');
   const addPngUrlBtn = document.getElementById('addPngUrlBtn');
   const pngUrlInput = document.getElementById('pngUrlInput');
+  const pngSelect = document.getElementById('pngSelect');
+  const addPngSelectedBtn = document.getElementById('addPngSelectedBtn');
 
   const bringForwardBtn = document.getElementById('bringForwardBtn');
   const sendBackwardBtn = document.getElementById('sendBackwardBtn');
@@ -348,6 +352,61 @@
 
   // Initialize
   wireInputs();
+
+  async function fetchManifest(url) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.files)) return data.files;
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function populateSelect(select, items) {
+    select.innerHTML = '';
+    if (!items.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No assets found';
+      select.appendChild(opt);
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    for (const url of items) {
+      const opt = document.createElement('option');
+      opt.value = url;
+      opt.textContent = url.split('/').pop();
+      select.appendChild(opt);
+    }
+  }
+
+  async function loadAssetSelects() {
+    const [videos, pngs] = await Promise.all([
+      fetchManifest('/public/video/_manifest.json'),
+      fetchManifest('/public/png/_manifest.json'),
+    ]);
+    populateSelect(videoSelect, videos);
+    populateSelect(pngSelect, pngs);
+  }
+
+  // Dropdown add buttons
+  addVideoSelectedBtn.addEventListener('click', () => {
+    const url = videoSelect.value;
+    if (!url) return;
+    addVideoFromSource(url, false).catch((e) => alert(e.message));
+  });
+  addPngSelectedBtn.addEventListener('click', () => {
+    const url = pngSelect.value;
+    if (!url) return;
+    addImageFromSource(url, false).catch((e) => alert(e.message));
+  });
+
+  loadAssetSelects();
 })();
 
 
