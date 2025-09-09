@@ -3,6 +3,7 @@
   /** @type {HTMLElement} */
   const stage = document.getElementById('stage');
   const layerList = document.getElementById('layerList');
+  const stageScaler = document.getElementById('stageScaler');
   const selectedInfo = document.getElementById('selectedInfo');
   const scaleRange = document.getElementById('scaleRange');
   const scalePct = document.getElementById('scalePct');
@@ -12,15 +13,13 @@
 
   const addVideoFileBtn = document.getElementById('addVideoFileBtn');
   const videoFileInput = document.getElementById('videoFileInput');
-  const addVideoUrlBtn = document.getElementById('addVideoUrlBtn');
-  const videoUrlInput = document.getElementById('videoUrlInput');
+  const reloadManifestsBtn = document.getElementById('reloadManifestsBtn');
   const videoSelect = document.getElementById('videoSelect');
   const addVideoSelectedBtn = document.getElementById('addVideoSelectedBtn');
 
   const addPngFileBtn = document.getElementById('addPngFileBtn');
   const pngFileInput = document.getElementById('pngFileInput');
-  const addPngUrlBtn = document.getElementById('addPngUrlBtn');
-  const pngUrlInput = document.getElementById('pngUrlInput');
+  
   const pngSelect = document.getElementById('pngSelect');
   const addPngSelectedBtn = document.getElementById('addPngSelectedBtn');
 
@@ -37,6 +36,11 @@
 
   const STAGE_WIDTH = 1880;
   const STAGE_HEIGHT = 980;
+  let viewScale = 1;
+  /** @type {{url:string,label:string,source:'session'|'manifest'}[]} */
+  let sessionVideoItems = [];
+  /** @type {{url:string,label:string,source:'session'|'manifest'}[]} */
+  let sessionPngItems = [];
 
   /** @typedef {{ id: string, el: HTMLElement, type: 'video'|'image', x: number, y: number, scale: number, naturalWidth: number, naturalHeight: number }} Layer */
 
@@ -127,8 +131,8 @@
       if (e.button !== 0) return;
       isDragging = true;
       const rect = stage.getBoundingClientRect();
-      startX = e.clientX - rect.left;
-      startY = e.clientY - rect.top;
+      startX = (e.clientX - rect.left) / viewScale;
+      startY = (e.clientY - rect.top) / viewScale;
       originX = layer.x;
       originY = layer.y;
       selectLayer(layer.id);
@@ -138,8 +142,8 @@
     function onPointerMove(e) {
       if (!isDragging) return;
       const rect = stage.getBoundingClientRect();
-      const curX = e.clientX - rect.left;
-      const curY = e.clientY - rect.top;
+      const curX = (e.clientX - rect.left) / viewScale;
+      const curY = (e.clientY - rect.top) / viewScale;
       const dx = curX - startX;
       const dy = curY - startY;
       layer.x = originX + dx;
@@ -190,7 +194,7 @@
     }
   }
 
-  function addVideoFromSource(src, isLocalFile) {
+  function addVideoFromSource(src, isLocalFile, keepObjectUrl = false) {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.src = src;
@@ -222,14 +226,14 @@
         resolve(layer);
       });
       video.addEventListener('error', () => reject(new Error('Failed to load video.')));
-      if (isLocalFile) {
+      if (isLocalFile && !keepObjectUrl) {
         // Ensure revoke after metadata
         video.addEventListener('loadeddata', () => URL.revokeObjectURL(src), { once: true });
       }
     });
   }
 
-  function addImageFromSource(src, isLocalFile) {
+  function addImageFromSource(src, isLocalFile, keepObjectUrl = false) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -257,7 +261,7 @@
       };
       img.onerror = () => reject(new Error('Failed to load PNG.'));
       img.src = src;
-      if (isLocalFile) {
+      if (isLocalFile && !keepObjectUrl) {
         img.addEventListener('load', () => URL.revokeObjectURL(src), { once: true });
       }
     });
@@ -271,7 +275,10 @@
       const file = videoFileInput.files && videoFileInput.files[0];
       if (!file) return;
       const url = URL.createObjectURL(file);
-      addVideoFromSource(url, true).catch((e) => alert(e.message));
+      // keep object URL alive for session use
+      sessionVideoItems.push({ url, label: `${file.name} (uploaded)`, source: 'session' });
+      loadAssetSelects();
+      addVideoFromSource(url, true, true).catch((e) => alert(e.message));
       videoFileInput.value = '';
     });
 
@@ -279,20 +286,14 @@
       const file = pngFileInput.files && pngFileInput.files[0];
       if (!file) return;
       const url = URL.createObjectURL(file);
-      addImageFromSource(url, true).catch((e) => alert(e.message));
+      sessionPngItems.push({ url, label: `${file.name} (uploaded)`, source: 'session' });
+      loadAssetSelects();
+      addImageFromSource(url, true, true).catch((e) => alert(e.message));
       pngFileInput.value = '';
     });
 
-    addVideoUrlBtn.addEventListener('click', () => {
-      const url = (videoUrlInput.value || '').trim();
-      if (!url) return alert('Enter a video URL');
-      addVideoFromSource(url, false).catch((e) => alert(e.message));
-    });
-
-    addPngUrlBtn.addEventListener('click', () => {
-      const url = (pngUrlInput.value || '').trim();
-      if (!url) return alert('Enter a PNG URL');
-      addImageFromSource(url, false).catch((e) => alert(e.message));
+    reloadManifestsBtn.addEventListener('click', () => {
+      loadAssetSelects();
     });
 
     scaleRange.addEventListener('input', () => {
@@ -412,10 +413,14 @@
       return;
     }
     select.disabled = false;
-    for (const url of items) {
+    for (const item of items) {
+      const url = typeof item === 'string' ? item : item.url;
+      const label = typeof item === 'string' ? item.split('/').pop() : item.label || url.split('/').pop();
+      const source = typeof item === 'string' ? 'manifest' : (item.source || 'manifest');
       const opt = document.createElement('option');
       opt.value = url;
-      opt.textContent = url.split('/').pop();
+      opt.textContent = label;
+      opt.dataset.source = source;
       select.appendChild(opt);
     }
   }
@@ -425,23 +430,60 @@
       fetchManifest('/public/video/_manifest.json'),
       fetchManifest('/public/png/_manifest.json'),
     ]);
-    populateSelect(videoSelect, videos);
-    populateSelect(pngSelect, pngs);
+    const videoItems = [
+      ...videos.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest' })),
+      ...sessionVideoItems,
+    ];
+    const pngItems = [
+      ...pngs.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest' })),
+      ...sessionPngItems,
+    ];
+    populateSelect(videoSelect, videoItems);
+    populateSelect(pngSelect, pngItems);
   }
 
   // Dropdown add buttons
   addVideoSelectedBtn.addEventListener('click', () => {
     const url = videoSelect.value;
     if (!url) return;
-    addVideoFromSource(url, false).catch((e) => alert(e.message));
+    const source = videoSelect.selectedOptions[0]?.dataset?.source || 'manifest';
+    const isBlob = url.startsWith('blob:');
+    if (source === 'session' || isBlob) {
+      addVideoFromSource(url, true, true).catch((e) => alert(e.message));
+    } else {
+      addVideoFromSource(url, false).catch((e) => alert(e.message));
+    }
   });
   addPngSelectedBtn.addEventListener('click', () => {
     const url = pngSelect.value;
     if (!url) return;
-    addImageFromSource(url, false).catch((e) => alert(e.message));
+    const source = pngSelect.selectedOptions[0]?.dataset?.source || 'manifest';
+    const isBlob = url.startsWith('blob:');
+    if (source === 'session' || isBlob) {
+      addImageFromSource(url, true, true).catch((e) => alert(e.message));
+    } else {
+      addImageFromSource(url, false).catch((e) => alert(e.message));
+    }
   });
 
   loadAssetSelects();
+
+  // --------- Fit to window scaling ---------
+  function updateViewScale() {
+    const wrap = document.querySelector('.stage-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const maxWidth = rect.width - 16; // some padding
+    const maxHeight = rect.height - 16;
+    const scaleX = maxWidth / STAGE_WIDTH;
+    const scaleY = maxHeight / STAGE_HEIGHT;
+    const scale = Math.min(1, Math.max(0.1, Math.min(scaleX, scaleY)));
+    viewScale = scale;
+    stageScaler.style.transform = `scale(${scale})`;
+  }
+
+  window.addEventListener('resize', updateViewScale);
+  // delay to allow layout
+  setTimeout(updateViewScale, 0);
 
   // --------- Export logic ---------
   let exportState = {

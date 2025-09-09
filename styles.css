@@ -111,6 +111,11 @@ body {
   overflow: auto;
 }
 
+.stage-scaler {
+  transform-origin: top left;
+  display: inline-block;
+}
+
 .stage {
   width: 1880px;
   height: 980px;

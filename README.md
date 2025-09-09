@@ -4,8 +4,7 @@ A static web app you can deploy on Netlify to layer a video under a transparent 
 
 ## Usage
 
-- Add a video via file picker or by URL (e.g. `/public/video/your.mp4`).
-- Add a transparent PNG via file picker or by URL (e.g. `/public/png/overlay.png`).
+- Upload a video or PNG (session-only) or pick from dropdowns populated by manifests.
 - Or, use the dropdowns populated from `/public/video/_manifest.json` and `/public/png/_manifest.json`.
 - Drag layers, select from the Layers panel, center H/V, and scale.
 - Toggle video controls globally or for the selected video.
@@ -13,6 +12,7 @@ A static web app you can deploy on Netlify to layer a video under a transparent 
 ## Local Development
 
 Serve the folder with any static server and open `http://localhost:PORT/index.html`.
+The stage auto-scales to fit your window; exports are still 1880x980.
 
 ## Deploy on Netlify
 
@@ -28,6 +28,7 @@ Regenerate manifests after adding/removing assets:
 ```bash
 python3 scripts/generate_manifests.py
 ```
+Or click the Reload Manifests button in the UI after you add files to `public/`.
 
 ### Export
 

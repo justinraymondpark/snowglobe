@@ -11,3 +11,7 @@
 ## 0.2.0 - 2025-09-09
 - feat: export panel (format, fps, duration, audio toggle)
 - feat: canvas compositor + MediaRecorder export (MP4 when supported, else WebM)
+## 0.2.1 - 2025-09-09
+- feat: fit-to-window scaling for the stage
+- feat: session uploads join dropdowns; remove URL inputs
+- feat: Reload Manifests button

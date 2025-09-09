@@ -11,20 +11,17 @@
       <h1>Snowglobe Layering</h1>
       <div class="actions">
         <div class="group">
-          <button id="addVideoFileBtn" class="btn">Add Video (File)</button>
+          <button id="addVideoFileBtn" class="btn">Upload Video</button>
           <input id="videoFileInput" type="file" accept="video/*" hidden />
-          <input id="videoUrlInput" type="text" placeholder="/public/video/your-video.mp4" class="url-input" />
-          <button id="addVideoUrlBtn" class="btn btn-secondary">Add Video (URL)</button>
           <select id="videoSelect" class="select-input"></select>
           <button id="addVideoSelectedBtn" class="btn btn-secondary">Add Video (Select)</button>
         </div>
         <div class="group">
-          <button id="addPngFileBtn" class="btn">Add PNG (File)</button>
+          <button id="addPngFileBtn" class="btn">Upload PNG</button>
           <input id="pngFileInput" type="file" accept="image/png" hidden />
-          <input id="pngUrlInput" type="text" placeholder="/public/png/your-image.png" class="url-input" />
-          <button id="addPngUrlBtn" class="btn btn-secondary">Add PNG (URL)</button>
           <select id="pngSelect" class="select-input"></select>
           <button id="addPngSelectedBtn" class="btn btn-secondary">Add PNG (Select)</button>
+          <button id="reloadManifestsBtn" class="btn btn-secondary">Reload Manifests</button>
         </div>
       </div>
     </header>
@@ -85,7 +82,9 @@
       </aside>
 
       <section class="stage-wrap">
-        <div id="stage" class="stage" tabindex="0" aria-label="Design stage 1880x980"></div>
+        <div id="stageScaler" class="stage-scaler">
+          <div id="stage" class="stage" tabindex="0" aria-label="Design stage 1880x980"></div>
+        </div>
       </section>
     </main>
 
