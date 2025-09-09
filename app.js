@@ -534,7 +534,9 @@
     compositeStream: null,
     totalFrames: 0,
     framesRendered: 0,
+    forceStopTimer: 0,
   };
+  const FORCE_STOP_SLACK_MS = 4000;
 
   function getSelectedVideoElement() {
     if (selectedLayer && selectedLayer.type === 'video') {
@@ -569,6 +571,9 @@
 
   function startCompositing() {
     if (exportState.running) return;
+    // Enforce defaults explicitly in case browser resets inputs
+    if (!exportFpsInput.value) exportFpsInput.value = '60';
+    if (!exportDurationInput.value) exportDurationInput.value = '10';
     const fps = clamp(Number(exportFpsInput.value) || 60, 1, 60);
     const durationSec = clamp(Number(exportDurationInput.value) || 10, 1, 600);
     const mimeType = exportFormat.value || 'video/webm';
@@ -580,6 +585,9 @@
     if (!ctx) { alert('Canvas 2D not supported.'); return; }
 
     const stream = canvas.captureStream(fps);
+    exportProgress.value = 0;
+    exportStatus.textContent = 'Preparing export...';
+    console.log('[export] start', { fps, durationSec, mimeType });
     if (exportIncludeAudio.checked) {
       const v = getSelectedVideoElement();
       if (v) {
@@ -602,20 +610,19 @@
       try { recorder = new MediaRecorder(stream); } catch (e2) { alert('MediaRecorder not supported.'); return; }
     }
 
-    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, intervalId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream, totalFrames: Math.round(fps * durationSec), framesRendered: 0 };
+    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, intervalId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream, totalFrames: Math.round(fps * durationSec), framesRendered: 0, forceStopTimer: 0 };
 
-    recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) exportState.chunks.push(e.data); };
+    recorder.onstart = () => { console.log('[export] recorder started', { mimeType: recorder.mimeType }); };
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        exportState.chunks.push(e.data);
+        //console.log('[export] chunk', e.data.size);
+      }
+    };
+    recorder.onerror = (e) => { console.error('[export] recorder error', e); };
     recorder.onstop = () => {
-      const blob = new Blob(exportState.chunks, { type: recorder.mimeType || mimeType });
-      const ext = (recorder.mimeType || mimeType).includes('mp4') ? 'mp4' : 'webm';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `export-${Date.now()}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      console.log('[export] recorder stopped, chunks:', exportState.chunks.length);
+      finalizeAndDownload(recorder.mimeType || mimeType);
       exportStatus.textContent = 'Export complete.';
       exportProgress.value = 100;
       startExportBtn.disabled = false;
@@ -649,23 +656,59 @@
     stopExportBtn.disabled = false;
     const intervalMs = Math.round(1000 / fps);
     exportState.intervalId = setInterval(tick, intervalMs);
+
+    // Watchdog: force finalize if no stop after slack time
+    if (exportState.forceStopTimer) clearTimeout(exportState.forceStopTimer);
+    exportState.forceStopTimer = setTimeout(() => {
+      if (exportState.running) {
+        console.warn('[export] watchdog forcing stop');
+        stopCompositing(true);
+      }
+    }, (exportState.endTime - performance.now()) + FORCE_STOP_SLACK_MS);
   }
 
-  function stopCompositing() {
+  function stopCompositing(forceFinalize = false) {
     if (!exportState.running) return;
     exportState.running = false;
     if (exportState.rafId) cancelAnimationFrame(exportState.rafId);
     if (exportState.intervalId) clearInterval(exportState.intervalId);
+    try { if (exportState.recorder && exportState.recorder.state === 'recording') exportState.recorder.requestData(); } catch (_) {}
     if (exportState.recorder && exportState.recorder.state !== 'inactive') {
       exportState.recorder.stop();
     }
     if (exportState.compositeStream) {
       exportState.compositeStream.getTracks().forEach(t => t.stop());
     }
+    if (forceFinalize) {
+      // Fallback finalize in case onstop never fires
+      const hinted = (exportState.recorder && exportState.recorder.mimeType) || exportFormat.value || 'video/webm';
+      finalizeAndDownload(hinted);
+      startExportBtn.disabled = false;
+      stopExportBtn.disabled = true;
+      exportStatus.textContent = 'Export complete (forced).';
+      exportProgress.value = 100;
+    }
+  }
+
+  function finalizeAndDownload(mimeType) {
+    const blob = new Blob(exportState.chunks, { type: mimeType });
+    const ext = (mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `export-${Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   startExportBtn.addEventListener('click', startCompositing);
   stopExportBtn.addEventListener('click', stopCompositing);
+
+  // Ensure defaults on init
+  if (!exportFpsInput.value) exportFpsInput.value = '60';
+  if (!exportDurationInput.value) exportDurationInput.value = '10';
 })();
 
 

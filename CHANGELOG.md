@@ -22,3 +22,6 @@
 - fix: stabilize export with fixed-interval loop
 - feat: export progress bar and status messages
 - chore: default export to 10s @ 60FPS
+## 0.3.2 - 2025-09-09
+- fix: enforce default 60 FPS/10s on init
+- feat: recorder watchdog + requestData flush; console debug logs
