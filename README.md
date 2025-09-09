@@ -36,7 +36,8 @@ Or click the Reload Manifests button in the UI after you add files to `public/`.
 
 - Use the Export panel:
   - Format auto-detected by your browser (MP4 if supported; otherwise WebM)
-  - Defaults: 60 FPS, 10 seconds
+  - Defaults: 30 FPS, 10 seconds
+  - Bitrate: set Mbps to influence encoder quality (browser permitting)
 - Click Start Export to render and download a file of the stage (1880x980). A progress bar and frame counter show status.
 
 ### Aspect cropping

@@ -31,3 +31,5 @@
 - feat: aspect ratio selector with stage overlay; exports crop to aspect
 - feat: drag-and-drop layer reordering; delete button on layers
 - chore: remove persist-to-GitHub option and video controls toggle
+## 0.4.1 - 2025-09-09
+- feat: export bitrate control (Mbps) and default FPS now 30

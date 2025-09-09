@@ -31,6 +31,7 @@
   const exportFormat = document.getElementById('exportFormat');
   const exportFpsInput = document.getElementById('exportFpsInput');
   const exportDurationInput = document.getElementById('exportDurationInput');
+  const exportBitrateInput = document.getElementById('exportBitrateInput');
   const exportDeterministic = document.getElementById('exportDeterministic');
   const startExportBtn = document.getElementById('startExportBtn');
   const stopExportBtn = document.getElementById('stopExportBtn');
@@ -496,12 +497,22 @@
   }
 
   async function loadAssetSelects() {
-    const [videos, pngs] = await Promise.all([
-      fetchManifest('/public/video/_manifest.json'),
+    const [videoManifest, pngs] = await Promise.all([
+      (async () => {
+        const data = await fetchManifest('/public/video/_manifest.json');
+        // fetchManifest returns either array or {files}. Use fetch directly for thumbs
+        try {
+          const res = await fetch('/public/video/_manifest.json', { cache: 'no-store' });
+          const json = await res.json();
+          return json;
+        } catch (_) { return { files: Array.isArray(data) ? data : [], thumbnails: {} }; }
+      })(),
       fetchManifest('/public/png/_manifest.json'),
     ]);
+    const videos = Array.isArray(videoManifest) ? videoManifest : (videoManifest.files || []);
+    const thumbsMap = videoManifest.thumbnails || {};
     const videoItems = [
-      ...videos.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest' })),
+      ...videos.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest', thumb: thumbsMap[(u.split('/').pop() || '')] })),
       ...sessionVideoItems,
     ];
     const pngItems = [
@@ -510,6 +521,7 @@
     ];
     populateSelect(videoSelect, videoItems);
     populateSelect(pngSelect, pngItems);
+    buildAssetGrid(videoItems);
   }
 
   async function reloadManifests() {
@@ -561,6 +573,42 @@
       addImageFromSource(url, false).catch((e) => alert(e.message));
     }
   });
+
+  // Asset modal (video browser)
+  const assetModal = document.getElementById('assetModal');
+  const assetGrid = document.getElementById('assetGrid');
+  const browseVideosBtn = document.getElementById('browseVideosBtn');
+  const closeAssetModal = document.getElementById('closeAssetModal');
+
+  function buildAssetGrid(items) {
+    if (!assetGrid) return;
+    assetGrid.innerHTML = '';
+    items.filter(i => i.source === 'manifest').forEach((item) => {
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+      const img = document.createElement('img');
+      img.className = 'asset-thumb';
+      img.alt = item.label;
+      img.loading = 'lazy';
+      if (item.thumb) img.src = item.thumb; else img.src = '/public/png/placeholder.png';
+      const meta = document.createElement('div');
+      meta.className = 'asset-meta';
+      meta.textContent = item.label;
+      card.appendChild(img);
+      card.appendChild(meta);
+      card.addEventListener('click', () => {
+        addVideoFromSource(item.url, false).catch((e) => alert(e.message));
+        hideAssetModal();
+      });
+      assetGrid.appendChild(card);
+    });
+  }
+
+  function showAssetModal() { assetModal.setAttribute('aria-hidden', 'false'); }
+  function hideAssetModal() { assetModal.setAttribute('aria-hidden', 'true'); }
+  if (browseVideosBtn) browseVideosBtn.addEventListener('click', showAssetModal);
+  if (closeAssetModal) closeAssetModal.addEventListener('click', hideAssetModal);
+  if (assetModal) assetModal.addEventListener('click', (e) => { if (e.target === assetModal) hideAssetModal(); });
 
   loadAssetSelects();
 
@@ -633,11 +681,13 @@
   async function startCompositing() {
     if (exportState.running) return;
     // Enforce defaults explicitly in case browser resets inputs
-    if (!exportFpsInput.value) exportFpsInput.value = '60';
+    if (!exportFpsInput.value) exportFpsInput.value = '30';
     if (!exportDurationInput.value) exportDurationInput.value = '10';
-    const fps = clamp(Number(exportFpsInput.value) || 60, 1, 60);
+    const fps = clamp(Number(exportFpsInput.value) || 30, 1, 60);
     const durationSec = clamp(Number(exportDurationInput.value) || 10, 1, 600);
     const mimeType = exportFormat.value || 'video/webm';
+    const mbps = clamp(Number(exportBitrateInput.value) || 12, 1, 50);
+    const bitsPerSecond = Math.round(mbps * 1_000_000);
 
     const canvas = document.createElement('canvas');
     // If cropping is selected, set canvas to crop area; otherwise full stage
@@ -679,9 +729,11 @@
 
     let recorder;
     try {
-      recorder = new MediaRecorder(stream, { mimeType });
+      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: bitsPerSecond, bitsPerSecond });
     } catch (e) {
-      try { recorder = new MediaRecorder(stream); } catch (e2) { alert('MediaRecorder not supported.'); return; }
+      try { recorder = new MediaRecorder(stream, { videoBitsPerSecond: bitsPerSecond, bitsPerSecond }); } catch (e2) {
+        try { recorder = new MediaRecorder(stream); } catch (e3) { alert('MediaRecorder not supported.'); return; }
+      }
     }
 
     exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, intervalId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream, totalFrames: Math.round(fps * durationSec), framesRendered: 0, forceStopTimer: 0, finalized: false };

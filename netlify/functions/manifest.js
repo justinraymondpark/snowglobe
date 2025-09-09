@@ -17,9 +17,18 @@ exports.handler = async (event) => {
     const videoDir = path.join(publicDir, 'video');
     ensureDir(pngDir); ensureDir(videoDir);
     const pngs = listFiles(pngDir, ['.png']).map((f) => `/public/png/${f}`);
-    const videos = listFiles(videoDir, ['.mp4', '.mov', '.webm', '.m4v', '.ogg', '.ogv', '.avi', '.mkv']).map((f) => `/public/video/${f}`);
+    const videosFiles = listFiles(videoDir, ['.mp4', '.mov', '.webm', '.m4v', '.ogg', '.ogv', '.avi', '.mkv']);
+    const videos = videosFiles.map((f) => `/public/video/${f}`);
+    const thumbs = {};
+    for (const f of videosFiles) {
+      const base = f.replace(path.extname(f), '');
+      const thumbPng = path.join(videoDir, `${base}.png`);
+      const thumbJpg = path.join(videoDir, `${base}.jpg`);
+      if (fs.existsSync(thumbPng)) thumbs[f] = `/public/video/${base}.png`;
+      else if (fs.existsSync(thumbJpg)) thumbs[f] = `/public/video/${base}.jpg`;
+    }
     fs.writeFileSync(path.join(pngDir, '_manifest.json'), JSON.stringify({ files: pngs }, null, 2));
-    fs.writeFileSync(path.join(videoDir, '_manifest.json'), JSON.stringify({ files: videos }, null, 2));
+    fs.writeFileSync(path.join(videoDir, '_manifest.json'), JSON.stringify({ files: videos, thumbnails: thumbs }, null, 2));
     return { statusCode: 200, headers: corsHeaders(), body: JSON.stringify({ pngs: pngs.length, videos: videos.length }) };
   } catch (e) {
     return { statusCode: 500, headers: corsHeaders(), body: e.message || 'Error' };

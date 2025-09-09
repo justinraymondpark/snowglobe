@@ -15,6 +15,7 @@
           <input id="videoFileInput" type="file" accept="video/*" hidden />
           <select id="videoSelect" class="select-input"></select>
           <button id="addVideoSelectedBtn" class="btn btn-secondary">Add Video (Select)</button>
+          <button id="browseVideosBtn" class="btn btn-secondary">Browse Videos</button>
         </div>
         <div class="group">
           <button id="addPngFileBtn" class="btn">Upload PNG</button>
@@ -72,9 +73,13 @@
             </div>
             <div class="row">
               <label for="exportFpsInput">FPS</label>
-              <input id="exportFpsInput" type="number" min="1" max="60" value="60" class="num" />
+              <input id="exportFpsInput" type="number" min="1" max="60" value="30" class="num" />
               <label for="exportDurationInput">Duration (s)</label>
               <input id="exportDurationInput" type="number" min="1" max="600" value="10" class="num" />
+            </div>
+            <div class="row">
+              <label for="exportBitrateInput">Bitrate (Mbps)</label>
+              <input id="exportBitrateInput" type="number" min="1" max="50" value="12" class="num" />
             </div>
             <div class="row">
               <label><input id="exportDeterministic" type="checkbox" /> Deterministic frame stepping (Firefox fallback)</label>
@@ -98,6 +103,16 @@
         </div>
       </section>
     </main>
+
+    <div id="assetModal" class="modal" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Select Video</h3>
+          <button id="closeAssetModal" class="icon-btn" aria-label="Close">✕</button>
+        </div>
+        <div id="assetGrid" class="asset-grid"></div>
+      </div>
+    </div>
 
     <footer class="app-footer">
       <div>
