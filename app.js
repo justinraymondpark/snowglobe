@@ -95,11 +95,17 @@
       e.dataTransfer.setData('text/plain', layer.id);
       e.dataTransfer.effectAllowed = 'move';
     });
-    item.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      showDropIndicator(item, e.clientY);
+      previewReorder(item, e.clientY);
+    });
+    item.addEventListener('dragleave', () => hideDropIndicator());
     item.addEventListener('drop', (e) => {
       e.preventDefault();
       const draggedId = e.dataTransfer.getData('text/plain');
-      reorderLayer(draggedId, layer.id);
+      commitPreviewReorder(draggedId, item, e.clientY);
+      hideDropIndicator();
     });
     layerList.appendChild(item);
   }
@@ -124,6 +130,70 @@
     // reflect DOM order: append in sequence
     layers.forEach(l => stage.appendChild(l.el));
     redrawLayerList();
+  }
+
+  // DnD indicator and live preview
+  let dropIndicatorEl = null;
+  function ensureDropIndicator() {
+    if (!dropIndicatorEl) {
+      dropIndicatorEl = document.createElement('div');
+      dropIndicatorEl.className = 'drop-indicator';
+    }
+    return dropIndicatorEl;
+  }
+  function showDropIndicator(targetItem, clientY) {
+    const ind = ensureDropIndicator();
+    const rect = targetItem.getBoundingClientRect();
+    const before = clientY < rect.top + rect.height / 2;
+    ind.remove();
+    if (before) targetItem.parentNode.insertBefore(ind, targetItem);
+    else targetItem.parentNode.insertBefore(ind, targetItem.nextSibling);
+  }
+  function hideDropIndicator() {
+    if (dropIndicatorEl && dropIndicatorEl.parentNode) dropIndicatorEl.parentNode.removeChild(dropIndicatorEl);
+  }
+
+  let previewOrder = null;
+  function previewReorder(targetItem, clientY) {
+    if (!selectedLayer) return;
+    const targetId = targetItem.dataset.id;
+    if (!targetId) return;
+    const rect = targetItem.getBoundingClientRect();
+    const before = clientY < rect.top + rect.height / 2;
+    const order = layers.slice();
+    const from = order.findIndex(l => l.id === selectedLayer.id);
+    const to = order.findIndex(l => l.id === targetId) + (before ? 0 : 1);
+    if (from === -1 || to === -1) return;
+    const [moved] = order.splice(from, 1);
+    order.splice(to > from ? to - 1 : to, 0, moved);
+    if (!arraysEqualOrder(previewOrder, order)) {
+      previewOrder = order;
+      // reflect DOM order immediately for preview
+      order.forEach(l => stage.appendChild(l.el));
+      // update list without committing
+      layerList.innerHTML = '';
+      for (let i = order.length - 1; i >= 0; i--) addLayerToList(order[i]);
+      refreshLayerListSelection();
+    }
+  }
+  function commitPreviewReorder(draggedId, targetItem, clientY) {
+    const targetId = targetItem.dataset.id;
+    if (!targetId) return;
+    const rect = targetItem.getBoundingClientRect();
+    const before = clientY < rect.top + rect.height / 2;
+    const from = layers.findIndex(l => l.id === draggedId);
+    let to = layers.findIndex(l => l.id === targetId) + (before ? 0 : 1);
+    if (from === -1 || to === -1) return;
+    const [moved] = layers.splice(from, 1);
+    layers.splice(to > from ? to - 1 : to, 0, moved);
+    layers.forEach(l => stage.appendChild(l.el));
+    redrawLayerList();
+    previewOrder = null;
+  }
+  function arraysEqualOrder(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i].id !== b[i].id) return false;
+    return true;
   }
 
   function refreshLayerListSelection() {
@@ -366,6 +436,15 @@
     scaleRange.addEventListener('input', () => {
       if (!selectedLayer) return;
       const val = clamp(Number(scaleRange.value) || 100, 10, 300);
+      const prev = selectedLayer.scale;
+      if (prev !== val) {
+        const w0 = selectedLayer.naturalWidth * (prev / 100);
+        const h0 = selectedLayer.naturalHeight * (prev / 100);
+        const w1 = selectedLayer.naturalWidth * (val / 100);
+        const h1 = selectedLayer.naturalHeight * (val / 100);
+        selectedLayer.x += (w0 - w1) / 2;
+        selectedLayer.y += (h0 - h1) / 2;
+      }
       selectedLayer.scale = val;
       scalePct.value = String(val);
       layoutLayer(selectedLayer);
@@ -375,6 +454,15 @@
     scalePct.addEventListener('input', () => {
       if (!selectedLayer) return;
       const val = clamp(Number(scalePct.value) || 100, 10, 300);
+      const prev = selectedLayer.scale;
+      if (prev !== val) {
+        const w0 = selectedLayer.naturalWidth * (prev / 100);
+        const h0 = selectedLayer.naturalHeight * (prev / 100);
+        const w1 = selectedLayer.naturalWidth * (val / 100);
+        const h1 = selectedLayer.naturalHeight * (val / 100);
+        selectedLayer.x += (w0 - w1) / 2;
+        selectedLayer.y += (h0 - h1) / 2;
+      }
       selectedLayer.scale = val;
       scaleRange.value = String(val);
       layoutLayer(selectedLayer);
@@ -416,7 +504,9 @@
 
   function redrawLayerList() {
     layerList.innerHTML = '';
-    layers.forEach((l) => addLayerToList(l));
+    for (let i = layers.length - 1; i >= 0; i--) {
+      addLayerToList(layers[i]);
+    }
     refreshLayerListSelection();
   }
 
@@ -590,7 +680,7 @@
       img.className = 'asset-thumb';
       img.alt = item.label;
       img.loading = 'lazy';
-      if (item.thumb) img.src = item.thumb; else img.src = '/public/png/placeholder.png';
+      if (item.thumb) img.src = item.thumb; else img.src = '/public/png/placeholder.svg';
       const meta = document.createElement('div');
       meta.className = 'asset-meta';
       meta.textContent = item.label;
