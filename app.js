@@ -31,6 +31,7 @@
   const exportFpsInput = document.getElementById('exportFpsInput');
   const exportDurationInput = document.getElementById('exportDurationInput');
   const exportIncludeAudio = document.getElementById('exportIncludeAudio');
+  const exportDeterministic = document.getElementById('exportDeterministic');
   const startExportBtn = document.getElementById('startExportBtn');
   const stopExportBtn = document.getElementById('stopExportBtn');
   const exportStatus = document.getElementById('exportStatus');
@@ -172,16 +173,29 @@
 
   function detectFormats() {
     const options = [];
+    const isFirefox = typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
     if (MediaRecorder && MediaRecorder.isTypeSupported) {
-      if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a') || MediaRecorder.isTypeSupported('video/mp4')) {
+      if (!isFirefox && (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a') || MediaRecorder.isTypeSupported('video/mp4'))) {
         options.push({ mime: 'video/mp4', label: 'MP4 (if supported)' });
       }
-      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
-        options.push({ mime: 'video/webm;codecs=vp9,opus', label: 'WebM VP9' });
-      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
-        options.push({ mime: 'video/webm;codecs=vp8,opus', label: 'WebM VP8' });
-      } else if (MediaRecorder.isTypeSupported('video/webm')) {
-        options.push({ mime: 'video/webm', label: 'WebM' });
+      if (isFirefox) {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) {
+          options.push({ mime: 'video/webm;codecs=vp8', label: 'WebM VP8' });
+        }
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+          options.push({ mime: 'video/webm;codecs=vp8,opus', label: 'WebM VP8+Opus (audio)' });
+        }
+        if (MediaRecorder.isTypeSupported('video/webm')) {
+          options.push({ mime: 'video/webm', label: 'WebM' });
+        }
+      } else {
+        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+          options.push({ mime: 'video/webm;codecs=vp9,opus', label: 'WebM VP9' });
+        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+          options.push({ mime: 'video/webm;codecs=vp8,opus', label: 'WebM VP8' });
+        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+          options.push({ mime: 'video/webm', label: 'WebM' });
+        }
       }
     }
     if (!options.length) {
@@ -570,7 +584,7 @@
     }
   }
 
-  function startCompositing() {
+  async function startCompositing() {
     if (exportState.running) return;
     // Enforce defaults explicitly in case browser resets inputs
     if (!exportFpsInput.value) exportFpsInput.value = '60';
@@ -586,6 +600,10 @@
     if (!ctx) { alert('Canvas 2D not supported.'); return; }
 
     const stream = canvas.captureStream(fps);
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack && videoTrack.applyConstraints) {
+      try { videoTrack.applyConstraints({ frameRate: fps }); } catch (_) {}
+    }
     exportProgress.value = 0;
     exportStatus.textContent = 'Preparing export...';
     console.log('[export] start', { fps, durationSec, mimeType });
@@ -640,9 +658,26 @@
       }
     });
 
-    function tick() {
+    async function tick() {
       if (!exportState.running) return;
+      if (exportDeterministic.checked) {
+        // Pause all videos and seek deterministically
+        for (const l of layers) {
+          if (l.type === 'video') {
+            const v = l.el.querySelector('video');
+            if (!v) continue;
+            try { if (!v.paused) await v.pause(); } catch (_) {}
+            const delta = 1 / fps;
+            const nextTime = (v.currentTime || 0) + delta;
+            await seekVideo(v, nextTime);
+          }
+        }
+      }
       drawCompositeFrame(ctx);
+      try {
+        const track = exportState.compositeStream && exportState.compositeStream.getVideoTracks()[0];
+        if (track && typeof track.requestFrame === 'function') track.requestFrame();
+      } catch (_) {}
       exportState.framesRendered += 1;
       const pct = Math.min(100, Math.floor((exportState.framesRendered / exportState.totalFrames) * 100));
       exportProgress.value = pct;
@@ -694,6 +729,14 @@
       exportStatus.textContent = 'Export complete (forced).';
       exportProgress.value = 100;
     }
+  }
+
+  function seekVideo(video, time) {
+    return new Promise((resolve) => {
+      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve(); };
+      video.addEventListener('seeked', onSeeked);
+      try { video.currentTime = time; } catch (_) { resolve(); }
+    });
   }
 
   function finalizeAndDownload(mimeType) {
