@@ -25,6 +25,7 @@
 
   const bringForwardBtn = document.getElementById('bringForwardBtn');
   const sendBackwardBtn = document.getElementById('sendBackwardBtn');
+  const persistUploads = document.getElementById('persistUploads');
 
   const exportFormat = document.getElementById('exportFormat');
   const exportFpsInput = document.getElementById('exportFpsInput');
@@ -271,7 +272,7 @@
     addVideoFileBtn.addEventListener('click', () => videoFileInput.click());
     addPngFileBtn.addEventListener('click', () => pngFileInput.click());
 
-    videoFileInput.addEventListener('change', () => {
+    videoFileInput.addEventListener('change', async () => {
       const file = videoFileInput.files && videoFileInput.files[0];
       if (!file) return;
       const url = URL.createObjectURL(file);
@@ -279,16 +280,24 @@
       sessionVideoItems.push({ url, label: `${file.name} (uploaded)`, source: 'session' });
       loadAssetSelects();
       addVideoFromSource(url, true, true).catch((e) => alert(e.message));
+      if (persistUploads.checked) {
+        await persistToGitHub(file, `public/video/${file.name}`);
+        await reloadManifests();
+      }
       videoFileInput.value = '';
     });
 
-    pngFileInput.addEventListener('change', () => {
+    pngFileInput.addEventListener('change', async () => {
       const file = pngFileInput.files && pngFileInput.files[0];
       if (!file) return;
       const url = URL.createObjectURL(file);
       sessionPngItems.push({ url, label: `${file.name} (uploaded)`, source: 'session' });
       loadAssetSelects();
       addImageFromSource(url, true, true).catch((e) => alert(e.message));
+      if (persistUploads.checked) {
+        await persistToGitHub(file, `public/png/${file.name}`);
+        await reloadManifests();
+      }
       pngFileInput.value = '';
     });
 
@@ -440,6 +449,32 @@
     ];
     populateSelect(videoSelect, videoItems);
     populateSelect(pngSelect, pngItems);
+  }
+
+  async function reloadManifests() {
+    // regenerate manifests if function exists, else just refetch
+    try {
+      await fetch('/.netlify/functions/manifest', { method: 'POST' });
+    } catch (_) {}
+    await loadAssetSelects();
+  }
+
+  async function persistToGitHub(file, destPath) {
+    try {
+      const buf = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const res = await fetch('/.netlify/functions/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: destPath, contentType: file.type, dataBase64: base64, message: `feat(upload): ${destPath}` }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        alert(`Upload failed: ${text}`);
+      }
+    } catch (e) {
+      alert(`Upload error: ${e.message || e}`);
+    }
   }
 
   // Dropdown add buttons

@@ -30,6 +30,18 @@ python3 scripts/generate_manifests.py
 ```
 Or click the Reload Manifests button in the UI after you add files to `public/`.
 
+### Persistent uploads (optional)
+
+You can persist uploads directly to this repo via Netlify Functions.
+
+Set these environment variables in Netlify:
+
+- `GITHUB_TOKEN`: a PAT with repo permissions
+- `GITHUB_REPO`: e.g. `justinraymondpark/snowglobe`
+- `GITHUB_BRANCH`: e.g. `main`
+
+Then in the UI check “Persist uploads to GitHub” before uploading.
+
 ### Export
 
 - Use the Export panel:

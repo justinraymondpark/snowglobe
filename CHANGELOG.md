@@ -15,3 +15,6 @@
 - feat: fit-to-window scaling for the stage
 - feat: session uploads join dropdowns; remove URL inputs
 - feat: Reload Manifests button
+## 0.3.0 - 2025-09-09
+- feat: Netlify Functions for upload persistence and manifest regeneration
+- feat: optional GitHub-backed uploads from the UI
