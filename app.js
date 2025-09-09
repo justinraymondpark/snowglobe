@@ -34,6 +34,7 @@
   const startExportBtn = document.getElementById('startExportBtn');
   const stopExportBtn = document.getElementById('stopExportBtn');
   const exportStatus = document.getElementById('exportStatus');
+  const exportProgress = document.getElementById('exportProgress');
 
   const STAGE_WIDTH = 1880;
   const STAGE_HEIGHT = 980;
@@ -528,8 +529,11 @@
     ctx: null,
     running: false,
     rafId: 0,
+    intervalId: 0,
     endTime: 0,
     compositeStream: null,
+    totalFrames: 0,
+    framesRendered: 0,
   };
 
   function getSelectedVideoElement() {
@@ -565,8 +569,8 @@
 
   function startCompositing() {
     if (exportState.running) return;
-    const fps = clamp(Number(exportFpsInput.value) || 30, 1, 60);
-    const durationSec = clamp(Number(exportDurationInput.value) || 5, 1, 600);
+    const fps = clamp(Number(exportFpsInput.value) || 60, 1, 60);
+    const durationSec = clamp(Number(exportDurationInput.value) || 10, 1, 600);
     const mimeType = exportFormat.value || 'video/webm';
 
     const canvas = document.createElement('canvas');
@@ -598,7 +602,7 @@
       try { recorder = new MediaRecorder(stream); } catch (e2) { alert('MediaRecorder not supported.'); return; }
     }
 
-    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream };
+    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, intervalId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream, totalFrames: Math.round(fps * durationSec), framesRendered: 0 };
 
     recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) exportState.chunks.push(e.data); };
     recorder.onstop = () => {
@@ -613,6 +617,7 @@
       a.remove();
       URL.revokeObjectURL(url);
       exportStatus.textContent = 'Export complete.';
+      exportProgress.value = 100;
       startExportBtn.disabled = false;
       stopExportBtn.disabled = true;
     };
@@ -628,24 +633,29 @@
     function tick() {
       if (!exportState.running) return;
       drawCompositeFrame(ctx);
-      if (performance.now() >= exportState.endTime) {
+      exportState.framesRendered += 1;
+      const pct = Math.min(100, Math.floor((exportState.framesRendered / exportState.totalFrames) * 100));
+      exportProgress.value = pct;
+      exportStatus.textContent = `Exporting... ${pct}% (${exportState.framesRendered}/${exportState.totalFrames})`;
+      if (exportState.framesRendered >= exportState.totalFrames || performance.now() >= exportState.endTime) {
         stopCompositing();
-        return;
       }
-      exportState.rafId = requestAnimationFrame(tick);
     }
 
+    // Use fixed interval to ensure frame pacing regardless of tab throttling
     recorder.start(Math.max(1000 / fps, 100));
     exportStatus.textContent = 'Exporting...';
     startExportBtn.disabled = true;
     stopExportBtn.disabled = false;
-    exportState.rafId = requestAnimationFrame(tick);
+    const intervalMs = Math.round(1000 / fps);
+    exportState.intervalId = setInterval(tick, intervalMs);
   }
 
   function stopCompositing() {
     if (!exportState.running) return;
     exportState.running = false;
-    cancelAnimationFrame(exportState.rafId);
+    if (exportState.rafId) cancelAnimationFrame(exportState.rafId);
+    if (exportState.intervalId) clearInterval(exportState.intervalId);
     if (exportState.recorder && exportState.recorder.state !== 'inactive') {
       exportState.recorder.stop();
     }

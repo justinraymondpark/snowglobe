@@ -18,3 +18,7 @@
 ## 0.3.0 - 2025-09-09
 - feat: Netlify Functions for upload persistence and manifest regeneration
 - feat: optional GitHub-backed uploads from the UI
+## 0.3.1 - 2025-09-09
+- fix: stabilize export with fixed-interval loop
+- feat: export progress bar and status messages
+- chore: default export to 10s @ 60FPS
