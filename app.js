@@ -535,6 +535,7 @@
     totalFrames: 0,
     framesRendered: 0,
     forceStopTimer: 0,
+    finalized: false,
   };
   const FORCE_STOP_SLACK_MS = 4000;
 
@@ -610,7 +611,7 @@
       try { recorder = new MediaRecorder(stream); } catch (e2) { alert('MediaRecorder not supported.'); return; }
     }
 
-    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, intervalId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream, totalFrames: Math.round(fps * durationSec), framesRendered: 0, forceStopTimer: 0 };
+    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, intervalId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream, totalFrames: Math.round(fps * durationSec), framesRendered: 0, forceStopTimer: 0, finalized: false };
 
     recorder.onstart = () => { console.log('[export] recorder started', { mimeType: recorder.mimeType }); };
     recorder.ondataavailable = (e) => {
@@ -622,7 +623,9 @@
     recorder.onerror = (e) => { console.error('[export] recorder error', e); };
     recorder.onstop = () => {
       console.log('[export] recorder stopped, chunks:', exportState.chunks.length);
-      finalizeAndDownload(recorder.mimeType || mimeType);
+      if (!exportState.finalized) {
+        finalizeAndDownload(recorder.mimeType || mimeType);
+      }
       exportStatus.textContent = 'Export complete.';
       exportProgress.value = 100;
       startExportBtn.disabled = false;
@@ -644,6 +647,9 @@
       const pct = Math.min(100, Math.floor((exportState.framesRendered / exportState.totalFrames) * 100));
       exportProgress.value = pct;
       exportStatus.textContent = `Exporting... ${pct}% (${exportState.framesRendered}/${exportState.totalFrames})`;
+      if (exportState.framesRendered % 30 === 0) {
+        console.log('[export] tick', exportState.framesRendered, '/', exportState.totalFrames, pct + '%');
+      }
       if (exportState.framesRendered >= exportState.totalFrames || performance.now() >= exportState.endTime) {
         stopCompositing();
       }
@@ -660,7 +666,7 @@
     // Watchdog: force finalize if no stop after slack time
     if (exportState.forceStopTimer) clearTimeout(exportState.forceStopTimer);
     exportState.forceStopTimer = setTimeout(() => {
-      if (exportState.running) {
+      if (!exportState.finalized) {
         console.warn('[export] watchdog forcing stop');
         stopCompositing(true);
       }
@@ -679,7 +685,7 @@
     if (exportState.compositeStream) {
       exportState.compositeStream.getTracks().forEach(t => t.stop());
     }
-    if (forceFinalize) {
+    if (forceFinalize && !exportState.finalized) {
       // Fallback finalize in case onstop never fires
       const hinted = (exportState.recorder && exportState.recorder.mimeType) || exportFormat.value || 'video/webm';
       finalizeAndDownload(hinted);
@@ -691,6 +697,7 @@
   }
 
   function finalizeAndDownload(mimeType) {
+    if (exportState.finalized) return;
     const blob = new Blob(exportState.chunks, { type: mimeType });
     const ext = (mimeType || '').includes('mp4') ? 'mp4' : 'webm';
     const url = URL.createObjectURL(blob);
@@ -701,6 +708,7 @@
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    exportState.finalized = true;
   }
 
   startExportBtn.addEventListener('click', startCompositing);
