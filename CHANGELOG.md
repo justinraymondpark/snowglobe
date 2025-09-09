@@ -8,3 +8,6 @@
 ## 0.1.1 - 2025-09-09
 - feat: dropdowns populated from public manifests for quick asset selection
 - chore: add manifest generator script and manifests for /public/video and /public/png
+## 0.2.0 - 2025-09-09
+- feat: export panel (format, fps, duration, audio toggle)
+- feat: canvas compositor + MediaRecorder export (MP4 when supported, else WebM)

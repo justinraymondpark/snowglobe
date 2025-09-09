@@ -95,6 +95,7 @@ body {
 .panel + .panel { margin-top: 16px; }
 .panel h2 { font-size: 14px; margin: 0 0 8px 0; color: var(--muted); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .field { font-size: 13px; color: var(--text); padding: 6px 8px; background: #111525; border: 1px solid var(--border); border-radius: 8px; }
+.field#exportStatus { min-height: 32px; display: flex; align-items: center; }
 
 .controls { display: flex; flex-direction: column; gap: 8px; }
 .row { display: flex; align-items: center; gap: 8px; }

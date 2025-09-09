@@ -58,6 +58,30 @@
             </div>
           </div>
         </div>
+
+        <div class="panel">
+          <h2>Export</h2>
+          <div class="controls">
+            <div class="row">
+              <label for="exportFormat">Format</label>
+              <select id="exportFormat" class="select-input"></select>
+            </div>
+            <div class="row">
+              <label for="exportFpsInput">FPS</label>
+              <input id="exportFpsInput" type="number" min="1" max="60" value="30" class="num" />
+              <label for="exportDurationInput">Duration (s)</label>
+              <input id="exportDurationInput" type="number" min="1" max="600" value="5" class="num" />
+            </div>
+            <div class="row">
+              <label><input id="exportIncludeAudio" type="checkbox" /> Include audio from selected video</label>
+            </div>
+            <div class="row">
+              <button id="startExportBtn" class="btn">Start Export</button>
+              <button id="stopExportBtn" class="btn btn-secondary" disabled>Stop</button>
+            </div>
+            <div class="field" id="exportStatus">Ready</div>
+          </div>
+        </div>
       </aside>
 
       <section class="stage-wrap">

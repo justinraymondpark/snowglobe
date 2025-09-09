@@ -28,3 +28,11 @@ Regenerate manifests after adding/removing assets:
 ```bash
 python3 scripts/generate_manifests.py
 ```
+
+### Export
+
+- Use the Export panel:
+  - Format auto-detected by your browser (MP4 if supported; otherwise WebM)
+  - Set FPS and duration
+  - Optional: include audio from the selected or first video layer
+- Click Start Export to render and download a file of the stage (1880x980).

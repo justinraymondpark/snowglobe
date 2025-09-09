@@ -27,6 +27,14 @@
   const bringForwardBtn = document.getElementById('bringForwardBtn');
   const sendBackwardBtn = document.getElementById('sendBackwardBtn');
 
+  const exportFormat = document.getElementById('exportFormat');
+  const exportFpsInput = document.getElementById('exportFpsInput');
+  const exportDurationInput = document.getElementById('exportDurationInput');
+  const exportIncludeAudio = document.getElementById('exportIncludeAudio');
+  const startExportBtn = document.getElementById('startExportBtn');
+  const stopExportBtn = document.getElementById('stopExportBtn');
+  const exportStatus = document.getElementById('exportStatus');
+
   const STAGE_WIDTH = 1880;
   const STAGE_HEIGHT = 980;
 
@@ -154,6 +162,32 @@
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+  }
+
+  function detectFormats() {
+    const options = [];
+    if (MediaRecorder && MediaRecorder.isTypeSupported) {
+      if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a') || MediaRecorder.isTypeSupported('video/mp4')) {
+        options.push({ mime: 'video/mp4', label: 'MP4 (if supported)' });
+      }
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+        options.push({ mime: 'video/webm;codecs=vp9,opus', label: 'WebM VP9' });
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+        options.push({ mime: 'video/webm;codecs=vp8,opus', label: 'WebM VP8' });
+      } else if (MediaRecorder.isTypeSupported('video/webm')) {
+        options.push({ mime: 'video/webm', label: 'WebM' });
+      }
+    }
+    if (!options.length) {
+      options.push({ mime: 'video/webm', label: 'WebM (fallback)' });
+    }
+    exportFormat.innerHTML = '';
+    for (const opt of options) {
+      const el = document.createElement('option');
+      el.value = opt.mime;
+      el.textContent = opt.label;
+      exportFormat.appendChild(el);
+    }
   }
 
   function addVideoFromSource(src, isLocalFile) {
@@ -352,6 +386,7 @@
 
   // Initialize
   wireInputs();
+  detectFormats();
 
   async function fetchManifest(url) {
     try {
@@ -407,6 +442,143 @@
   });
 
   loadAssetSelects();
+
+  // --------- Export logic ---------
+  let exportState = {
+    recorder: null,
+    chunks: [],
+    canvas: null,
+    ctx: null,
+    running: false,
+    rafId: 0,
+    endTime: 0,
+    compositeStream: null,
+  };
+
+  function getSelectedVideoElement() {
+    if (selectedLayer && selectedLayer.type === 'video') {
+      return selectedLayer.el.querySelector('video');
+    }
+    // fallback to first video layer
+    const firstVideo = layers.find(l => l.type === 'video');
+    return firstVideo ? firstVideo.el.querySelector('video') : null;
+  }
+
+  function drawCompositeFrame(ctx) {
+    ctx.clearRect(0, 0, STAGE_WIDTH, STAGE_HEIGHT);
+    for (const layer of layers) {
+      const x = layer.x;
+      const y = layer.y;
+      const scale = layer.scale / 100;
+      const w = layer.naturalWidth * scale;
+      const h = layer.naturalHeight * scale;
+      if (layer.type === 'video') {
+        const v = layer.el.querySelector('video');
+        if (v && v.readyState >= 2) {
+          ctx.drawImage(v, x, y, w, h);
+        }
+      } else if (layer.type === 'image') {
+        const img = layer.el.querySelector('img');
+        if (img && img.complete) {
+          ctx.drawImage(img, x, y, w, h);
+        }
+      }
+    }
+  }
+
+  function startCompositing() {
+    if (exportState.running) return;
+    const fps = clamp(Number(exportFpsInput.value) || 30, 1, 60);
+    const durationSec = clamp(Number(exportDurationInput.value) || 5, 1, 600);
+    const mimeType = exportFormat.value || 'video/webm';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = STAGE_WIDTH;
+    canvas.height = STAGE_HEIGHT;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { alert('Canvas 2D not supported.'); return; }
+
+    const stream = canvas.captureStream(fps);
+    if (exportIncludeAudio.checked) {
+      const v = getSelectedVideoElement();
+      if (v) {
+        try {
+          const audioStream = v.captureStream ? v.captureStream() : null;
+          if (audioStream) {
+            const audioTracks = audioStream.getAudioTracks();
+            for (const t of audioTracks) stream.addTrack(t);
+          }
+        } catch (e) {
+          // ignore if not supported
+        }
+      }
+    }
+
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType });
+    } catch (e) {
+      try { recorder = new MediaRecorder(stream); } catch (e2) { alert('MediaRecorder not supported.'); return; }
+    }
+
+    exportState = { recorder, chunks: [], canvas, ctx, running: true, rafId: 0, endTime: performance.now() + durationSec * 1000, compositeStream: stream };
+
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) exportState.chunks.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(exportState.chunks, { type: recorder.mimeType || mimeType });
+      const ext = (recorder.mimeType || mimeType).includes('mp4') ? 'mp4' : 'webm';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `export-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      exportStatus.textContent = 'Export complete.';
+      startExportBtn.disabled = false;
+      stopExportBtn.disabled = true;
+    };
+
+    // Ensure all videos play to render frames
+    layers.forEach(l => {
+      if (l.type === 'video') {
+        const v = l.el.querySelector('video');
+        if (v && v.paused) { v.muted = true; v.play().catch(() => {}); }
+      }
+    });
+
+    function tick() {
+      if (!exportState.running) return;
+      drawCompositeFrame(ctx);
+      if (performance.now() >= exportState.endTime) {
+        stopCompositing();
+        return;
+      }
+      exportState.rafId = requestAnimationFrame(tick);
+    }
+
+    recorder.start(Math.max(1000 / fps, 100));
+    exportStatus.textContent = 'Exporting...';
+    startExportBtn.disabled = true;
+    stopExportBtn.disabled = false;
+    exportState.rafId = requestAnimationFrame(tick);
+  }
+
+  function stopCompositing() {
+    if (!exportState.running) return;
+    exportState.running = false;
+    cancelAnimationFrame(exportState.rafId);
+    if (exportState.recorder && exportState.recorder.state !== 'inactive') {
+      exportState.recorder.stop();
+    }
+    if (exportState.compositeStream) {
+      exportState.compositeStream.getTracks().forEach(t => t.stop());
+    }
+  }
+
+  startExportBtn.addEventListener('click', startCompositing);
+  stopExportBtn.addEventListener('click', stopCompositing);
 })();
 
 
