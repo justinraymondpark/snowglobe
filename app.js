@@ -17,6 +17,9 @@
   const videoFileInput = document.getElementById('videoFileInput');
   const reloadManifestsBtn = document.getElementById('reloadManifestsBtn');
   const generateThumbsBtn = document.getElementById('generateThumbsBtn');
+  // Legacy selects (may not exist)
+  const videoSelect = document.getElementById('videoSelect');
+  const pngSelect = document.getElementById('pngSelect');
   const bringForwardBtn = document.getElementById('bringForwardBtn');
   const sendBackwardBtn = document.getElementById('sendBackwardBtn');
 
