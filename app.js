@@ -46,6 +46,8 @@
   let sessionVideoItems = [];
   /** @type {{url:string,label:string,source:'session'|'manifest'}[]} */
   let sessionPngItems = [];
+  /** @type {Record<string,string>} url->dataURL */
+  let sessionThumbs = {};
 
   /** @typedef {{ id: string, el: HTMLElement, type: 'video'|'image', x: number, y: number, scale: number, naturalWidth: number, naturalHeight: number }} Layer */
 
@@ -622,7 +624,7 @@
     const videos = Array.isArray(videoManifest) ? videoManifest : (videoManifest.files || []);
     const thumbsMap = videoManifest.thumbnails || {};
     const videoItems = [
-      ...videos.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest', thumb: thumbsMap[(u.split('/').pop() || '')] })),
+      ...videos.map((u) => ({ url: u, label: u.split('/').pop(), source: 'manifest', thumb: sessionThumbs[u] || thumbsMap[(u.split('/').pop() || '')] })),
       ...sessionVideoItems,
     ];
     const pngItems = [
@@ -640,17 +642,54 @@
       const manifest = await res.json();
       const files = Array.isArray(manifest) ? manifest : (manifest.files || []);
       for (const url of files) {
-        await fetch('/.netlify/functions/generate-thumb', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoPath: url })
-        });
+        try {
+          const dataUrl = await clientGenerateThumb(url, 0.5);
+          if (dataUrl) {
+            sessionThumbs[url] = dataUrl;
+            // Try to persist to repo if upload function is configured
+            try {
+              const base64 = dataUrl.split(',')[1];
+              const name = (url.split('/').pop() || '').replace(/\.[^.]+$/, '');
+              await fetch('/.netlify/functions/upload', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: `public/video/${name}.png`, contentType: 'image/png', dataBase64: base64, message: `feat(thumb): ${name}.png` })
+              });
+            } catch (_) { /* ignore if not configured */ }
+          }
+        } catch (e) { /* ignore per-file errors */ }
       }
-      await reloadManifests();
-      alert('Thumbnail generation requested. If ffmpeg is available, thumbs will appear.');
+      // Rebuild modal grid with session thumbs immediately
+      await loadAssetSelects();
+      alert('Thumbnails generated in-session. If uploads are configured, they will persist.');
     } catch (e) {
       alert('Failed to request thumbnails');
     }
+  }
+
+  function clientGenerateThumb(url, seconds) {
+    return new Promise((resolve) => {
+      const v = document.createElement('video');
+      v.src = url;
+      v.muted = true;
+      v.playsInline = true;
+      v.crossOrigin = 'anonymous';
+      v.addEventListener('loadedmetadata', async () => {
+        try {
+          const t = Math.min(Math.max(seconds || 0.5, 0.1), (v.duration || 1) - 0.1);
+          await seekVideo(v, t);
+          const canvas = document.createElement('canvas');
+          const maxW = 640;
+          const scale = Math.min(1, maxW / (v.videoWidth || 640));
+          canvas.width = Math.round((v.videoWidth || 640) * scale);
+          canvas.height = Math.round((v.videoHeight || 360) * scale);
+          const c = canvas.getContext('2d');
+          if (!c) return resolve('');
+          c.drawImage(v, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (_) { resolve(''); }
+      }, { once: true });
+      v.addEventListener('error', () => resolve(''), { once: true });
+    });
   }
 
   async function reloadManifests() {
