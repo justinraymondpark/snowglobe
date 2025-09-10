@@ -49,6 +49,12 @@
   /** @type {Record<string,string>} url->dataURL */
   let sessionThumbs = {};
 
+  // Load persisted thumbs from localStorage
+  try {
+    const saved = localStorage.getItem('sg_session_thumbs');
+    if (saved) sessionThumbs = JSON.parse(saved);
+  } catch (_) {}
+
   /** @typedef {{ id: string, el: HTMLElement, type: 'video'|'image', x: number, y: number, scale: number, naturalWidth: number, naturalHeight: number }} Layer */
 
   /** @type {Layer[]} */
@@ -658,6 +664,8 @@
           }
         } catch (e) { /* ignore per-file errors */ }
       }
+      // Persist session thumbs to localStorage
+      try { localStorage.setItem('sg_session_thumbs', JSON.stringify(sessionThumbs)); } catch (_) {}
       // Rebuild modal grid with session thumbs immediately
       await loadAssetSelects();
       alert('Thumbnails generated in-session. If uploads are configured, they will persist.');
