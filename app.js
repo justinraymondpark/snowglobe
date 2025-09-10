@@ -676,21 +676,7 @@
     }
   }
 
-  // Dropdown add buttons (legacy)
-  if (addVideoSelectedBtn && videoSelect) addVideoSelectedBtn.addEventListener('click', () => {
-    const url = videoSelect.value; if (!url) return;
-    const source = videoSelect.selectedOptions[0]?.dataset?.source || 'manifest';
-    const isBlob = url.startsWith('blob:');
-    if (source === 'session' || isBlob) addVideoFromSource(url, true, true).catch((e) => alert(e.message));
-    else addVideoFromSource(url, false).catch((e) => alert(e.message));
-  });
-  if (addPngSelectedBtn && pngSelect) addPngSelectedBtn.addEventListener('click', () => {
-    const url = pngSelect.value; if (!url) return;
-    const source = pngSelect.selectedOptions[0]?.dataset?.source || 'manifest';
-    const isBlob = url.startsWith('blob:');
-    if (source === 'session' || isBlob) addImageFromSource(url, true, true).catch((e) => alert(e.message));
-    else addImageFromSource(url, false).catch((e) => alert(e.message));
-  });
+  // Dropdown add buttons removed
 
   // Asset modal (video browser)
   const assetModal = document.getElementById('assetModal');
